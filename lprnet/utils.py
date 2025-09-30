@@ -39,7 +39,7 @@ def greedy_decode(logits, idx_to_char, blank_idx):
 # -------------------------
 # Predict single image
 # -------------------------
-def predict_image(model, image):
+def predict_image(model, image) -> str:
     """
     model : trained model
     image : tensor [3, 24, 94] (CHW, normalized to [0,1])

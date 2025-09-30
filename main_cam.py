@@ -1,84 +1,63 @@
-import os
+import cv2
 import torch
 import numpy as np
-import cv2
+from ultralytics import YOLO
+
+# -------------------------
+# Load YOLOv11 detection model
+# -------------------------
+yolo_model = YOLO("yolo_detector.pt")
+
+# -------------------------
+# Load your OCR model (LPRNet or similar)
+# -------------------------
 from lprnet.lprnet import build_lprnet
 from lprnet.utils import predict_image
-from inference import get_model
-import supervision as sv
 
-# --------------------
-# CONFIG
-# --------------------
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-API_KEY = "Dq8TDPGHIXHOjFfdoQHp"   # replace with your real key
-os.environ["ROBOFLOW_API_KEY"] = API_KEY
+ocr_model = build_lprnet()  # adjust class_num
+ocr_model.load_state_dict(torch.load("chinese_lprnet_best.pth", map_location=DEVICE))
+ocr_model.to(DEVICE).eval()
 
-# --------------------
-# LOAD LPRNet
-# --------------------
-lpr_model = build_lprnet().to(DEVICE)
-lpr_model.load_state_dict(torch.load("chinese_lprnet_best.pth", map_location=DEVICE))
-lpr_model.eval()
 
-# --------------------
-# LOAD YOLO DETECTOR
-# --------------------
-detector = get_model(model_id="chinese-license-plate-detection/1")
+# -------------------------
+# Preprocess cropped plate
+# -------------------------
+def preprocess_plate(crop):
+    crop = cv2.resize(crop, (94, 24))          # resize to W=94, H=24
+    crop = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+    crop = torch.from_numpy(crop).float() / 255.0
+    crop = crop.permute(2, 0, 1)               # HWC -> CHW
+    return crop
 
-# annotators
-bounding_box_annotator = sv.BoxAnnotator()
-label_annotator = sv.LabelAnnotator()
-
-# --------------------
-# CAMERA LOOP
-# --------------------
-cap = cv2.VideoCapture(0)  # 0 = default webcam
+# -------------------------
+# Run realtime detection + OCR
+# -------------------------
+cap = cv2.VideoCapture(0)
 
 while True:
     ret, frame = cap.read()
     if not ret:
         break
 
-    # run detection
-    results = detector.infer(frame)[0]
-    detections = sv.Detections.from_inference(results)
+    # Detect license plates
+    results = yolo_model(frame, conf=0.5)
 
-    labels = []
-    for (x_min, y_min, x_max, y_max) in detections.xyxy:
-        # crop bbox
-        cropped = frame[int(y_min):int(y_max), int(x_min):int(x_max)]
-        if cropped.size == 0:
-            continue
+    for box in results[0].boxes:
+        x1, y1, x2, y2 = map(int, box.xyxy[0])   # bounding box
+        crop = frame[y1:y2, x1:x2]               # crop plate
 
-        # BGR -> RGB
-        cropped_rgb = cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB)
+        if crop.size != 0:  # ensure valid crop
+            plate_tensor = preprocess_plate(crop)
+            text = predict_image(ocr_model, plate_tensor)
 
-        # resize to (width=94, height=24)
-        resized = cv2.resize(cropped_rgb, (94, 24))
+            # Draw bounding box + text
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(frame, text, (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-        # HWC -> CHW
-        chw = np.transpose(resized, (2, 0, 1))  # (3,24,94)
+    cv2.imshow("License Plate Detection + OCR", frame)
 
-        # tensor
-        chw_tensor = torch.from_numpy(chw).float().to(DEVICE) / 255.0
-
-        # predict
-        prediction = predict_image(lpr_model, chw_tensor)
-
-        labels.append(prediction)  # show only the characters
-
-    # annotate frame with boxes + predictions
-    annotated_frame = bounding_box_annotator.annotate(scene=frame, detections=detections)
-    if labels:
-        annotated_frame = label_annotator.annotate(scene=annotated_frame,
-                                                   detections=detections,
-                                                   labels=labels)
-
-    # show live video
-    cv2.imshow("License Plate Recognition", annotated_frame)
-
-    # quit with 'q'
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
