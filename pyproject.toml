@@ -6,6 +6,9 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "inference>=0.57.2",
+    "jupyter>=1.1.1",
+    "paddleocr>=3.2.0",
+    "paddlepaddle>=3.2.0",
     "supervision>=0.26.1",
     "ultralytics>=8.3.203",
 ]
