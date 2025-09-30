@@ -1,0 +1,11 @@
+[project]
+name = "lprnet-infer"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "inference>=0.57.2",
+    "supervision>=0.26.1",
+    "ultralytics>=8.3.203",
+]
