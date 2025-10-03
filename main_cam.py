@@ -16,7 +16,7 @@ from lprnet.utils import predict_image
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ocr_model = build_lprnet()  # adjust class_num
-ocr_model.load_state_dict(torch.load("chinese_lprnet_best.pth", map_location=DEVICE))
+ocr_model.load_state_dict(torch.load("5000_chinese_lprnet_best_0_05484444214209147.pth", map_location=DEVICE))
 ocr_model.to(DEVICE).eval()
 
 

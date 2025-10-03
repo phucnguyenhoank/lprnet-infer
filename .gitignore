@@ -10,3 +10,7 @@ wheels/
 .venv
 
 crops/
+sampled_ccpd_all_cropped/
+sampled_ccpd*/
+lrpnet_dataset_*/
+*.zip

@@ -9,6 +9,7 @@ dependencies = [
     "jupyter>=1.1.1",
     "paddleocr>=3.2.0",
     "paddlepaddle>=3.2.0",
+    "rise>=5.7.1",
     "supervision>=0.26.1",
     "ultralytics>=8.3.203",
 ]
